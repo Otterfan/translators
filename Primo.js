@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcs",
-	"lastUpdated": "2013-08-03 13:10:31"
+	"lastUpdated": "2013-09-04 17:40:31"
 }
 
 /*
@@ -137,8 +137,10 @@ function doWeb(doc, url) {
 		}else {
 			var item = new Zotero.Item("document");
 		}
-		item.title = ZU.xpathText(doc, '//display/title');
-		
+		if (title =  ZU.xpathText(doc, '//display/title')) {
+			item.title = stripHighlighting(title)
+		}
+
 		var creators;
 		var contributors;
 		if (ZU.xpathText(doc, '//display/creator')) {
@@ -161,6 +163,7 @@ function doWeb(doc, url) {
 		for (i in creators) {
 			if (creators[i]) {
 				var creator  = creators[i].textContent.split(/\s*;\s*/);
+				creator = arrayStripHighlighting(creator);
 				for (j in creator){
 					creator[j] = creator[j].replace(/\d{4}-(\d{4})?/g, '');
 					item.creators.push(Zotero.Utilities.cleanAuthor(creator[j], "author", true));
@@ -171,6 +174,7 @@ function doWeb(doc, url) {
 		for (i in contributors) {
 			if (contributors[i]) {
 				var contributor = contributors[i].textContent.split(/\s*;\s*/);
+				contributor = arrayStripHighlighting(contributor);
 				for (j in contributor){
 				contributor[j] = contributor[j].replace(/\d{4}-(\d{4})?/g, '');
 				item.creators.push(Zotero.Utilities.cleanAuthor(contributor[j], "contributor", true));
@@ -188,25 +192,30 @@ function doWeb(doc, url) {
 		var pubplace = ZU.xpathText(doc, '//display/publisher').split(" : ");
 		}
 		if (pubplace && pubplace[1]) {
+			pubplace = arrayStripHighlighting(pubplace);
 			item.place = pubplace[0].replace(/,\s*c?\d+|[\(\)\[\]]|(\.\s*)?/g, "");
 			item.publisher = pubplace[1].replace(/,\s*c?\d+|[\(\)\[\]]|(\.\s*)?/g, "");
 		} else if (pubplace) {
+			pubplace = arrayStripHighlighting(pubplace);
 			item.publisher = pubplace[0].replace(/,\s*c?\d+|[\(\)\[\]]|(\.\s*)?/g, "");
 		}
 		
 		var date;
 		if (date = ZU.xpathText(doc, '//display/creationdate|//search/creationdate')) {
+			date = stripHighlighting(date);
 			if (date.match(/\d+/)) item.date = date.match(/\d+/)[0];
 		}
 		
 		// the three letter ISO codes that should be in the language field work well:
 		var language;
 		if (language = ZU.xpathText(doc, '//display/language')) {
+				language = stripHighlighting(language);
 				item.language = language;
 		}
 		
 		var pages;
 		if (pages = ZU.xpathText(doc, '//display/format')) {
+			pages = arrayStripHighlighting(pages);
 			if (pages.match(/[0-9]+/)) {
 				pages = pages.replace(/[\(\)\[\]]/g, "").match(/[0-9]+/);
 				item.pages = item.numPages = pages[0];
@@ -218,7 +227,7 @@ function doWeb(doc, url) {
 		// (although note that it will reject invalid ISBNs)
 		var locators;
 		if (locators = ZU.xpathText(doc, '//display/identifier')) {
-			locators = idCheck(locators);
+			locators = arrayStripHighlighting(idCheck(locators));
 			if (locators.isbn10) item.ISBN = locators.isbn10;
 			if (locators.isbn13) item.ISBN = locators.isbn13;
 			if (locators.issn) item.ISSN = locators.issn;
@@ -226,6 +235,7 @@ function doWeb(doc, url) {
 		
 		var edition;
 		if (edition = ZU.xpathText(doc, '//display/edition')) {
+			edition = stripHighlighting(edition);
 			item.edition = edition;
 		}
 		
@@ -244,7 +254,22 @@ function doWeb(doc, url) {
 		}
 		
 		item.complete();
-		
+
+
+		// Primo 4.4.1 includes highlighting markup in "//display" metadata.
+		// These functions strip that markup.
+		function stripHighlighting(metadata) {
+			var highlight_regex = /<span class="searchword">(?!<\/span>)(.*)<\/span>/ig;
+			return metadata.replace(highlight_regex,"$1");
+		}
+
+		function arrayStripHighlighting(text_array) {
+			for (var i = 0; i < text_array.length; i++) {
+				text_array[i] = stripHighlighting(text_array[i]);
+			}
+			return text_array;
+		}
+
 	}
 
 /* The next two functions are logic that could be bundled away into the translator toolkit. */
